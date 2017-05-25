@@ -230,6 +230,13 @@ namespace ReactNative.UIManager
                         { "registrationName", "onMouseLeave" },
                     }
                 },
+                {
+                    "topPreviewCaptureFinished",
+                    new Map
+                    {
+                        { "registrationName", "onPreviewCaptureFinished" },
+                    }
+                },
             };
         }
 

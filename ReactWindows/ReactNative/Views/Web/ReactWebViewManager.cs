@@ -185,6 +185,12 @@ namespace ReactNative.Views.Web
                     view.Refresh();
                     break;
                 case CommandCapturePreview:
+                    view.GetReactContext().GetNativeModule<UIManagerModule>()
+                    .EventDispatcher
+                    .DispatchEvent(
+                         new WebViewPreviewFinishedEvent(
+                            view.GetTag(),
+                            "Hello world"));
                     break;
                 default:
                     throw new InvalidOperationException(

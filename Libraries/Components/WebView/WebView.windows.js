@@ -198,6 +198,7 @@ var WebView = React.createClass({
         onLoadingStart={this.onLoadingStart}
         onLoadingFinish={this.onLoadingFinish}
         onLoadingError={this.onLoadingError}
+        onPreviewCaptureFinished={this.onPreviewCaptureFinished}
         testID={this.props.testID}
       />;
 
@@ -283,6 +284,10 @@ var WebView = React.createClass({
     });
     this.updateNavigationState(event);
   },
+
+  onPreviewCaptureFinished: function (event) {
+    console.log("onPreviewBase64bmp", arguments[0].nativeEvent.base64bmp)
+  }
 });
 
 var RCTWebView = requireNativeComponent('RCTWebView', WebView);
