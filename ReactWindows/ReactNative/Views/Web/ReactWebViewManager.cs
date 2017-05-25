@@ -21,6 +21,7 @@ namespace ReactNative.Views.Web
         private const int CommandGoBack = 1;
         private const int CommandGoForward = 2;
         private const int CommandReload = 3;
+        private const int CommandCapturePreview = 4;
 
         private readonly Dictionary<int, string> _injectedJS = new Dictionary<int, string>();
 
@@ -47,6 +48,7 @@ namespace ReactNative.Views.Web
                     { "goBack", CommandGoBack },
                     { "goForward", CommandGoForward },
                     { "reload", CommandReload },
+                    { "capturePreview", CommandCapturePreview },
                 };
             }
         }
@@ -181,6 +183,8 @@ namespace ReactNative.Views.Web
                     break;
                 case CommandReload:
                     view.Refresh();
+                    break;
+                case CommandCapturePreview:
                     break;
                 default:
                     throw new InvalidOperationException(
