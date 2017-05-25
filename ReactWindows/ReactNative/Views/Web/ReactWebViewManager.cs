@@ -4,6 +4,9 @@ using ReactNative.UIManager.Annotations;
 using ReactNative.Views.Web.Events;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Threading.Tasks;
+using Windows.Storage.Streams;
 using Windows.UI.Xaml.Controls;
 using Windows.Web;
 using Windows.Web.Http;
@@ -185,17 +188,31 @@ namespace ReactNative.Views.Web
                     view.Refresh();
                     break;
                 case CommandCapturePreview:
-                    view.GetReactContext().GetNativeModule<UIManagerModule>()
-                    .EventDispatcher
-                    .DispatchEvent(
-                         new WebViewPreviewFinishedEvent(
-                            view.GetTag(),
-                            "Hello world"));
+                    GeneratePreviewEvent(view);
+                    //todo: add cancelation
                     break;
                 default:
                     throw new InvalidOperationException(
                         Invariant($"Unsupported command '{commandId}' received by '{typeof(ReactWebViewManager)}'."));
             }
+        }
+
+        static private async Task GeneratePreviewEvent(WebView webView)
+        {
+            using (InMemoryRandomAccessStream randomMemoryStream = new InMemoryRandomAccessStream())
+            using (MemoryStream memoryStream = new MemoryStream())
+            {
+                await webView.CapturePreviewToStreamAsync(randomMemoryStream).AsTask().ConfigureAwait(false);
+                await RandomAccessStream.CopyAndCloseAsync(randomMemoryStream.GetInputStreamAt(0), memoryStream.AsOutputStream()).AsTask().ConfigureAwait(false);
+                String imageData = Convert.ToBase64String(memoryStream.ToArray());
+                webView.GetReactContext().GetNativeModule<UIManagerModule>()
+                   .EventDispatcher
+                   .DispatchEvent(
+                        new WebViewPreviewFinishedEvent(
+                           webView.GetTag(),
+                           imageData));
+            }
+           
         }
 
         /// <summary>
