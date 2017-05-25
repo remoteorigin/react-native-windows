@@ -204,7 +204,7 @@ namespace ReactNative.Views.Web
             {
                 await webView.CapturePreviewToStreamAsync(randomMemoryStream).AsTask().ConfigureAwait(false);
                 await RandomAccessStream.CopyAndCloseAsync(randomMemoryStream.GetInputStreamAt(0), memoryStream.AsOutputStream()).AsTask().ConfigureAwait(false);
-                String imageData = "data:image/bpm;base64," + Convert.ToBase64String(memoryStream.ToArray());
+                String imageData = "data:image/bmp;base64," + Convert.ToBase64String(memoryStream.ToArray());
                 webView.GetReactContext().GetNativeModule<UIManagerModule>()
                    .EventDispatcher
                    .DispatchEvent(
