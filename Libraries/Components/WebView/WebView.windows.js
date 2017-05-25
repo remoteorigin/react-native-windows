@@ -286,7 +286,8 @@ var WebView = React.createClass({
   },
 
   onPreviewCaptureFinished: function (event) {
-    console.log("onPreviewBase64bmp", arguments[0].nativeEvent.base64bmp)
+    var {onPreview} = this.props;
+    onPreview && onPreview(arguments[0].nativeEvent.base64bmp);
   }
 });
 
