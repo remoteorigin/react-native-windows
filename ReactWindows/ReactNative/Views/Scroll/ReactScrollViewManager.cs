@@ -111,6 +111,7 @@ namespace ReactNative.Views.Scroll
             {
                 view.VerticalScrollMode = ScrollMode.Disabled;
                 view.HorizontalScrollMode = ScrollMode.Disabled;
+                view.CancelDirectManipulations();
             }
         }
 
