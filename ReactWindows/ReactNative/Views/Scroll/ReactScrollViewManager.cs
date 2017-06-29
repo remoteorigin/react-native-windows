@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Media;
 using static System.FormattableString;
 
@@ -225,6 +226,16 @@ namespace ReactNative.Views.Scroll
                 : ZoomMode.Disabled;
         }
 
+        [ReactProp("pagingEnabled")]
+        public void SetPagingEnabled(ScrollViewer view, bool? enabled) {
+            bool isEnabled = enabled ?? false;
+            _scrollViewerData[view].pagingEnabled = isEnabled;
+            if (view.Content == null)
+                return;
+            var snapStackPanel = (SnapStackPanel)view.Content;
+            snapStackPanel.pagingEnabled = isEnabled;
+        }
+
         /// <summary>
         /// Adds a child at the given index.
         /// </summary>
@@ -248,7 +259,12 @@ namespace ReactNative.Views.Scroll
 
             child.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Top);
             child.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Left);
-            parent.Content = child;
+            var stackPanel = new SnapStackPanel()
+            {
+                pagingEnabled = _scrollViewerData[parent].pagingEnabled,
+            };
+            parent.Content = stackPanel;
+            stackPanel.Children.Add((UIElement) child);
         }
 
         /// <summary>
@@ -365,6 +381,8 @@ namespace ReactNative.Views.Scroll
                 HorizontalScrollMode = ScrollMode.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
                 VerticalScrollMode = ScrollMode.Auto,
+                HorizontalSnapPointsType = SnapPointsType.Mandatory,
+                HorizontalSnapPointsAlignment = SnapPointsAlignment.Near,
             };
 
             _scrollViewerData.Add(scrollViewer, scrollViewerData);
@@ -529,6 +547,57 @@ namespace ReactNative.Views.Scroll
         class ScrollViewerData
         {
             public ScrollMode HorizontalScrollMode = ScrollMode.Disabled;
+            public bool pagingEnabled = false;
+        }
+    }
+
+    class SnapStackPanel : StackPanel, IScrollSnapPointsInfo
+    {
+        public bool AreHorizontalSnapPointsRegular
+        {
+            get
+            {
+                return true;
+            }
+        }
+
+        public bool AreVerticalSnapPointsRegular
+        {
+            get
+            {
+                return true;
+            }
+        }
+
+        private bool _pagingEnabled;
+        public bool pagingEnabled
+        {
+            get
+            {
+                return _pagingEnabled;
+            }
+            internal set
+            {
+                _pagingEnabled = value;
+                HorizontalSnapPointsChanged?.Invoke(null, null);
+                VerticalSnapPointsChanged?.Invoke(null, null);
+            }
+        }
+
+        public event EventHandler<object> HorizontalSnapPointsChanged;
+        public event EventHandler<object> VerticalSnapPointsChanged;
+
+        public IReadOnlyList<float> GetIrregularSnapPoints(Orientation orientation, SnapPointsAlignment alignment)
+        {
+            throw new NotImplementedException();
+        }
+
+        public float GetRegularSnapPoints(Orientation orientation, SnapPointsAlignment alignment, out float offset)
+        {
+            offset = 0;
+            if (!pagingEnabled)
+                return 0;
+            return (float)ActualWidth / 3;
         }
     }
 }
