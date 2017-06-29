@@ -1,4 +1,5 @@
 ﻿using System;
+using ReactNative.Views.Scroll;
 using System.Runtime.CompilerServices;
 #if WINDOWS_UWP
 using Windows.UI.Xaml;
@@ -112,6 +113,10 @@ namespace ReactNative.UIManager
                 throw new ArgumentNullException(nameof(view));
 
             var elementData = default(DependencyObjectData);
+            if (view is SnapStackPanel)
+            {
+                view = ((SnapStackPanel)view).Children[0];
+            }
             if (!s_properties.TryGetValue(view, out elementData) || !elementData.Tag.HasValue)
             {
                 throw new InvalidOperationException("Could not get tag for view.");
