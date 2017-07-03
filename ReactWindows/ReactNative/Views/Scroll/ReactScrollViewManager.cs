@@ -171,13 +171,24 @@ namespace ReactNative.Views.Scroll
         [ReactProp("contentOffset")]
         public void SetContentOffset(ScrollViewer view, JObject contentOffset)
         {
+            var offsetX = contentOffset.Value<double>("x");
+            var offsetY = contentOffset.Value<double>("y");
+            _scrollViewerData[view].offsetX = offsetX;
+            _scrollViewerData[view].offsetY = offsetY;
             view.ViewChanging -= OnViewChanging;
-            view.ChangeView(
-                contentOffset.Value<double>("x"), 
-                contentOffset.Value<double>("y"), 
+            var changed = view.ChangeView(
+                offsetX,
+                offsetY, 
                 null,
                 true);
             view.ViewChanging += OnViewChanging;
+            if (view.Content == null)
+                return;
+            if (!changed)
+            {
+                var snapStackPanel = (SnapStackPanel)view.Content;
+                snapStackPanel.SizeChanged += StackPanel_SizeChanged;
+            }
         }
 
         /// <summary>
@@ -276,6 +287,23 @@ namespace ReactNative.Views.Scroll
             };
             parent.Content = stackPanel;
             stackPanel.Children.Add((UIElement) child);
+            stackPanel.SizeChanged += StackPanel_SizeChanged;
+        }
+
+        private void StackPanel_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            var panel = (SnapStackPanel)sender;
+            var parent = (ScrollViewer) panel.Parent;
+            parent.ViewChanging -= OnViewChanging;
+            var changed = parent.ChangeView(
+                _scrollViewerData[parent].offsetX,
+                _scrollViewerData[parent].offsetY,
+                null,
+                true);
+            if(changed)
+                panel.SizeChanged -= StackPanel_SizeChanged;
+            parent.ViewChanging += OnViewChanging;
+
         }
 
         /// <summary>
@@ -560,6 +588,8 @@ namespace ReactNative.Views.Scroll
             public ScrollMode HorizontalScrollMode = ScrollMode.Disabled;
             public bool pagingEnabled = false;
             public uint childCount;
+            public double offsetX;
+            public double offsetY;
         }
     }
 
