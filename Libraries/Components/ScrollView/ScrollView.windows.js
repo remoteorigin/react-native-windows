@@ -374,6 +374,7 @@ const ScrollView = React.createClass({
      * @platform windows
      */
     zoomEnabled: PropTypes.bool,
+    childCount: PropTypes.number,
   },
 
   mixins: [ScrollResponder.Mixin],
@@ -586,6 +587,7 @@ const ScrollView = React.createClass({
       onResponderRelease: this.scrollResponderHandleResponderRelease,
       onResponderReject: this.scrollResponderHandleResponderReject,
       sendMomentumEvents: (this.props.onMomentumScrollBegin || this.props.onMomentumScrollEnd) ? true : false,
+      childCount: React.Children.count(this.props.children),
     };
 
     const { decelerationRate } = this.props;

@@ -236,6 +236,16 @@ namespace ReactNative.Views.Scroll
             snapStackPanel.pagingEnabled = isEnabled;
         }
 
+        [ReactProp("childCount")]
+        public void setReactChildCount(ScrollViewer view, uint childCount)
+        {
+            _scrollViewerData[view].childCount = childCount;
+            if (view.Content == null)
+                return;
+            var snapStackPanel = (SnapStackPanel)view.Content;
+            snapStackPanel.childCount = childCount;
+        }
+
         /// <summary>
         /// Adds a child at the given index.
         /// </summary>
@@ -262,6 +272,7 @@ namespace ReactNative.Views.Scroll
             var stackPanel = new SnapStackPanel()
             {
                 pagingEnabled = _scrollViewerData[parent].pagingEnabled,
+                childCount = _scrollViewerData[parent].childCount,
             };
             parent.Content = stackPanel;
             stackPanel.Children.Add((UIElement) child);
@@ -382,7 +393,7 @@ namespace ReactNative.Views.Scroll
                 VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
                 VerticalScrollMode = ScrollMode.Auto,
                 HorizontalSnapPointsType = SnapPointsType.Mandatory,
-                HorizontalSnapPointsAlignment = SnapPointsAlignment.Near,
+                HorizontalSnapPointsAlignment = SnapPointsAlignment.Center,
             };
 
             _scrollViewerData.Add(scrollViewer, scrollViewerData);
@@ -548,6 +559,7 @@ namespace ReactNative.Views.Scroll
         {
             public ScrollMode HorizontalScrollMode = ScrollMode.Disabled;
             public bool pagingEnabled = false;
+            public uint childCount;
         }
     }
 
@@ -557,7 +569,7 @@ namespace ReactNative.Views.Scroll
         {
             get
             {
-                return true;
+                return false;
             }
         }
 
@@ -565,7 +577,7 @@ namespace ReactNative.Views.Scroll
         {
             get
             {
-                return true;
+                return false;
             }
         }
 
@@ -584,20 +596,41 @@ namespace ReactNative.Views.Scroll
             }
         }
 
+        private uint _childCount;
+        public uint childCount
+        {
+            get
+            {
+                return _childCount;
+            }
+            internal set
+            {
+                _childCount = value;
+                HorizontalSnapPointsChanged?.Invoke(null, null);
+                VerticalSnapPointsChanged?.Invoke(null, null);
+            }
+        }
+
         public event EventHandler<object> HorizontalSnapPointsChanged;
         public event EventHandler<object> VerticalSnapPointsChanged;
 
         public IReadOnlyList<float> GetIrregularSnapPoints(Orientation orientation, SnapPointsAlignment alignment)
         {
-            throw new NotImplementedException();
+            if (!pagingEnabled || orientation == Orientation.Vertical)
+                return new List<float> { };
+            var count = childCount;
+            var width = (float)ActualWidth / count;
+            var ret = new List<float>((int)count);
+            for (var i = 0; i < count; i++)
+            {
+                ret.Add(width / 2 + i * width);
+            }
+            return ret;
         }
 
         public float GetRegularSnapPoints(Orientation orientation, SnapPointsAlignment alignment, out float offset)
         {
-            offset = 0;
-            if (!pagingEnabled)
-                return 0;
-            return (float)ActualWidth / 3;
+            throw new NotImplementedException();
         }
     }
 }
