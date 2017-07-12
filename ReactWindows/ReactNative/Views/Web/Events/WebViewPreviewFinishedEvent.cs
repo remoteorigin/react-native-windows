@@ -7,12 +7,12 @@ namespace ReactNative.Views.Web.Events
 {
     class WebViewPreviewFinishedEvent : Event
     {
-        private readonly string base64bmp;
+        private readonly string base64img;
 
-        public WebViewPreviewFinishedEvent(int viewTag, string base64bmp)
+        public WebViewPreviewFinishedEvent(int viewTag, string base64img)
             : base(viewTag, TimeSpan.FromTicks(Environment.TickCount))
         {
-            this.base64bmp = base64bmp;
+            this.base64img = base64img;
         }
 
         public override string EventName
@@ -28,7 +28,7 @@ namespace ReactNative.Views.Web.Events
             var eventData = new JObject
             {
                 { "target", ViewTag },
-                { "base64bmp", base64bmp },
+                { "base64img", base64img },
             };
 
             eventEmitter.receiveEvent(ViewTag, EventName, eventData);

@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using ImageSharp;
+using Newtonsoft.Json.Linq;
 using ReactNative.UIManager;
 using ReactNative.UIManager.Annotations;
 using ReactNative.Views.Web.Events;
@@ -6,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 using Windows.UI.Xaml.Controls;
 using Windows.Web;
@@ -86,7 +88,7 @@ namespace ReactNative.Views.Web
         [ReactProp("injectedJavaScript")]
         public void SetInjectedJavaScript(WebView view, string injectedJavaScript)
         {
-            _injectedJS[view.GetTag()] = injectedJavaScript;         
+            _injectedJS[view.GetTag()] = injectedJavaScript;
         }
 
         /// <summary>
@@ -161,7 +163,7 @@ namespace ReactNative.Views.Web
                     }
                 }
             }
-            
+
             view.Navigate(new Uri(BLANK_URL));
         }
 
@@ -199,12 +201,25 @@ namespace ReactNative.Views.Web
 
         static private async Task GeneratePreviewEvent(WebView webView)
         {
-            using (InMemoryRandomAccessStream randomMemoryStream = new InMemoryRandomAccessStream())
-            using (MemoryStream memoryStream = new MemoryStream())
+            using (InMemoryRandomAccessStream fullSizeRandomStream = new InMemoryRandomAccessStream())
+            using (MemoryStream fullSizeMemoryStream = new MemoryStream())
+            using (MemoryStream downscaledMemoryStream = new MemoryStream())
             {
-                await webView.CapturePreviewToStreamAsync(randomMemoryStream).AsTask().ConfigureAwait(false);
-                await RandomAccessStream.CopyAndCloseAsync(randomMemoryStream.GetInputStreamAt(0), memoryStream.AsOutputStream()).AsTask().ConfigureAwait(false);
-                String imageData = "data:image/bmp;base64," + Convert.ToBase64String(memoryStream.ToArray());
+                await webView.CapturePreviewToStreamAsync(fullSizeRandomStream).AsTask().ConfigureAwait(false);
+                await RandomAccessStream.CopyAsync(fullSizeRandomStream.GetInputStreamAt(0), fullSizeMemoryStream.AsOutputStream()).AsTask().ConfigureAwait(false);
+                fullSizeMemoryStream.Position = 0;
+                using (Image<Rgba32> image = ImageSharp.Image.Load(fullSizeMemoryStream))
+                {
+                    image.Resize(new ImageSharp.Processing.ResizeOptions
+                    {
+                        Size = new SixLabors.Primitives.Size(672, 402),
+                        Mode = ImageSharp.Processing.ResizeMode.Crop
+                    });
+                    image.SaveAsJpeg(downscaledMemoryStream);
+                }
+
+
+                String imageData = "data:image/jpeg;base64," + Convert.ToBase64String(downscaledMemoryStream.ToArray());
                 webView.GetReactContext().GetNativeModule<UIManagerModule>()
                    .EventDispatcher
                    .DispatchEvent(
@@ -212,7 +227,7 @@ namespace ReactNative.Views.Web
                            webView.GetTag(),
                            imageData));
             }
-           
+
         }
 
         /// <summary>
@@ -268,15 +283,15 @@ namespace ReactNative.Views.Web
                         await webView.InvokeScriptAsync("eval", args).AsTask().ConfigureAwait(false);
                     }
                     catch (Exception ex)
-                    {    
+                    {
                         LoadFailed(webView, e.WebErrorStatus, ex.Message);
                     }
-                }  
+                }
             }
             else
             {
                 LoadFailed(webView, e.WebErrorStatus, null);
-            }      
+            }
         }
 
         private static void OnNavigationStarting(object sender, WebViewNavigationStartingEventArgs e)
@@ -289,10 +304,10 @@ namespace ReactNative.Views.Web
                     new WebViewLoadingEvent(
                          webView.GetTag(),
                          "Start",
-                         e.Uri?.ToString(), 
-                         true, 
-                         webView.DocumentTitle, 
-                         webView.CanGoBack, 
+                         e.Uri?.ToString(),
+                         true,
+                         webView.DocumentTitle,
+                         webView.CanGoBack,
                          webView.CanGoForward));
         }
 
