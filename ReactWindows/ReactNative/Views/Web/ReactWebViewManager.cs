@@ -14,6 +14,7 @@ using Windows.Storage.Streams;
 using Windows.UI.Xaml.Controls;
 using Windows.Web;
 using Windows.Web.Http;
+using ReactNative.Bridge;
 using static System.FormattableString;
 
 namespace ReactNative.Views.Web
@@ -195,23 +196,21 @@ namespace ReactNative.Views.Web
         private static async Task GeneratePreviewEvent(WebView webView)
         {
             using (InMemoryRandomAccessStream randomMemoryStream = new InMemoryRandomAccessStream())
-            using (MemoryStream memoryStream = new MemoryStream())
             {
                 await webView.CapturePreviewToStreamAsync(randomMemoryStream).AsTask().ConfigureAwait(false);
                 MemoryStream resizedStream = null;
                 try
                 {
-                    await RandomAccessStream.CopyAndCloseAsync(randomMemoryStream.GetInputStreamAt(0), memoryStream.AsOutputStream())
-                        .AsTask().ConfigureAwait(false);
-
-                    resizedStream = ResizeStream(memoryStream);
+                    resizedStream = ResizeStream(randomMemoryStream.AsStreamForRead());
                     String imageData = "data:image/bmp;base64," + Convert.ToBase64String(resizedStream.ToArray());
-                    webView.GetReactContext().GetNativeModule<UIManagerModule>()
-                        .EventDispatcher
-                        .DispatchEvent(
-                            new WebViewPreviewFinishedEvent(
-                                webView.GetTag(),
-                                imageData));
+                    DispatcherHelpers.RunOnDispatcher(() =>
+                        webView.GetReactContext().GetNativeModule<UIManagerModule>()
+                            .EventDispatcher
+                            .DispatchEvent(
+                                new WebViewPreviewFinishedEvent(
+                                    webView.GetTag(),
+                                    imageData))
+                    );
                 }
                 finally
                 {
@@ -222,9 +221,7 @@ namespace ReactNative.Views.Web
 
         private static MemoryStream ResizeStream(Stream input)
         {
-            const int size = 150;
-            const int quality = 75;
-
+            const int size = 750;
             var output = new MemoryStream();
 
             using (var image = new Bitmap(System.Drawing.Image.FromStream(input)))
@@ -247,18 +244,12 @@ namespace ReactNative.Views.Web
                     graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
                     graphics.CompositingMode = CompositingMode.SourceCopy;
                     graphics.DrawImage(image, 0, 0, width, height);
-
-
-                    //var qualityParamId = Encoder.Quality;
-                    //var encoderParameters = new EncoderParameters(1);
-                    //encoderParameters.Param[0] = new EncoderParameter(qualityParamId, quality);
-                    //var codec = ImageCodecInfo.GetImageDecoders().FirstOrDefault(c => c.FormatID == ImageFormat.Jpeg.Guid);
-
                     resized.Save(output, ImageFormat.Bmp);
                 }
             }
             return output;
         }
+
 
         /// <summary>
         /// Called when view is detached from view hierarchy and allows for 
