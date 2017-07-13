@@ -1,10 +1,12 @@
-﻿using ImageSharp;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using ReactNative.UIManager;
 using ReactNative.UIManager.Annotations;
 using ReactNative.Views.Web.Events;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Threading.Tasks;
 using Windows.Graphics.Imaging;
@@ -167,16 +169,7 @@ namespace ReactNative.Views.Web
             view.Navigate(new Uri(BLANK_URL));
         }
 
-        /// <summary>
-        /// Receive events/commands directly from JavaScript through the 
-        /// <see cref="UIManagerModule"/>.
-        /// </summary>
-        /// <param name="view">
-        /// The view instance that should receive the command.
-        /// </param>
-        /// <param name="commandId">Identifer for the command.</param>
-        /// <param name="args">Optional arguments for the command.</param>
-        public override void ReceiveCommand(WebView view, int commandId, JArray args)
+        public override async void ReceiveCommand(WebView view, int commandId, JArray args)
         {
             switch (commandId)
             {
@@ -190,7 +183,7 @@ namespace ReactNative.Views.Web
                     view.Refresh();
                     break;
                 case CommandCapturePreview:
-                    GeneratePreviewEvent(view);
+                    await GeneratePreviewEvent(view);
                     //todo: add cancelation
                     break;
                 default:
@@ -199,35 +192,72 @@ namespace ReactNative.Views.Web
             }
         }
 
-        static private async Task GeneratePreviewEvent(WebView webView)
+        private static async Task GeneratePreviewEvent(WebView webView)
         {
-            using (InMemoryRandomAccessStream fullSizeRandomStream = new InMemoryRandomAccessStream())
-            using (MemoryStream fullSizeMemoryStream = new MemoryStream())
-            using (MemoryStream downscaledMemoryStream = new MemoryStream())
+            using (InMemoryRandomAccessStream randomMemoryStream = new InMemoryRandomAccessStream())
+            using (MemoryStream memoryStream = new MemoryStream())
             {
-                await webView.CapturePreviewToStreamAsync(fullSizeRandomStream).AsTask().ConfigureAwait(false);
-                await RandomAccessStream.CopyAsync(fullSizeRandomStream.GetInputStreamAt(0), fullSizeMemoryStream.AsOutputStream()).AsTask().ConfigureAwait(false);
-                fullSizeMemoryStream.Position = 0;
-                using (Image<Rgba32> image = ImageSharp.Image.Load(fullSizeMemoryStream))
+                await webView.CapturePreviewToStreamAsync(randomMemoryStream).AsTask().ConfigureAwait(false);
+                MemoryStream resizedStream = null;
+                try
                 {
-                    image.Resize(new ImageSharp.Processing.ResizeOptions
-                    {
-                        Size = new SixLabors.Primitives.Size(672, 402),
-                        Mode = ImageSharp.Processing.ResizeMode.Crop
-                    });
-                    image.SaveAsJpeg(downscaledMemoryStream);
+                    await RandomAccessStream.CopyAndCloseAsync(randomMemoryStream.GetInputStreamAt(0), memoryStream.AsOutputStream())
+                        .AsTask().ConfigureAwait(false);
+
+                    resizedStream = ResizeStream(memoryStream);
+                    String imageData = "data:image/bmp;base64," + Convert.ToBase64String(resizedStream.ToArray());
+                    webView.GetReactContext().GetNativeModule<UIManagerModule>()
+                        .EventDispatcher
+                        .DispatchEvent(
+                            new WebViewPreviewFinishedEvent(
+                                webView.GetTag(),
+                                imageData));
                 }
-
-
-                String imageData = "data:image/jpeg;base64," + Convert.ToBase64String(downscaledMemoryStream.ToArray());
-                webView.GetReactContext().GetNativeModule<UIManagerModule>()
-                   .EventDispatcher
-                   .DispatchEvent(
-                        new WebViewPreviewFinishedEvent(
-                           webView.GetTag(),
-                           imageData));
+                finally
+                {
+                    resizedStream?.Dispose();
+                }
             }
+        }
 
+        private static MemoryStream ResizeStream(Stream input)
+        {
+            const int size = 150;
+            const int quality = 75;
+
+            var output = new MemoryStream();
+
+            using (var image = new Bitmap(System.Drawing.Image.FromStream(input)))
+            {
+                int width, height;
+                if (image.Width > image.Height)
+                {
+                    width = size;
+                    height = Convert.ToInt32(image.Height * size / (double)image.Width);
+                }
+                else
+                {
+                    width = Convert.ToInt32(image.Width * size / (double)image.Height);
+                    height = size;
+                }
+                var resized = new Bitmap(width, height);
+                using (var graphics = Graphics.FromImage(resized))
+                {
+                    graphics.CompositingQuality = CompositingQuality.HighSpeed;
+                    graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    graphics.CompositingMode = CompositingMode.SourceCopy;
+                    graphics.DrawImage(image, 0, 0, width, height);
+
+
+                    //var qualityParamId = Encoder.Quality;
+                    //var encoderParameters = new EncoderParameters(1);
+                    //encoderParameters.Param[0] = new EncoderParameter(qualityParamId, quality);
+                    //var codec = ImageCodecInfo.GetImageDecoders().FirstOrDefault(c => c.FormatID == ImageFormat.Jpeg.Guid);
+
+                    resized.Save(output, ImageFormat.Bmp);
+                }
+            }
+            return output;
         }
 
         /// <summary>
