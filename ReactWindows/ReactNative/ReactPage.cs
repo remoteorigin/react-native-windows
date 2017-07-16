@@ -2,6 +2,7 @@
 using ReactNative.Bridge;
 using ReactNative.Modules.Core;
 using System;
+using ReactNative.UIManager;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Windows.System;
@@ -9,6 +10,7 @@ using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
+using ReactNative.UIManager.Events;
 
 namespace ReactNative
 {
@@ -192,6 +194,10 @@ namespace ReactNative
                 {
                     _reactInstanceManager.DevSupportManager.HandleReloadJavaScript();
                 }
+                else
+                {
+                    KeyEvent(e);
+                }
             }
         }
 
@@ -234,5 +240,7 @@ namespace ReactNative
                 }
             }
         }
+        static public event KeyHandler KeyEvent;
     }
+    public delegate void KeyHandler(AcceleratorKeyEventArgs e);
 }
