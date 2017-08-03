@@ -1,7 +1,7 @@
 ﻿{
   "dependencies": {
-    "CoreCompat.System.Drawing": "1.0.0-beta006",
     "Facebook.Yoga": "1.2.0-pre1",
+    "Magick.NET-Q8-AnyCPU": "7.0.6.102",
     "Microsoft.NETCore.UniversalWindowsPlatform": "5.2.2",
     "Microsoft.Toolkit.Uwp.UI": "1.3.1",
     "Newtonsoft.Json": "9.0.1",

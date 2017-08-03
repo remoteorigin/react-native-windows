@@ -1,12 +1,10 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using ImageMagick;
+using Newtonsoft.Json.Linq;
 using ReactNative.UIManager;
 using ReactNative.UIManager.Annotations;
 using ReactNative.Views.Web.Events;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Threading.Tasks;
 using Windows.Graphics.Imaging;
@@ -14,7 +12,6 @@ using Windows.Storage.Streams;
 using Windows.UI.Xaml.Controls;
 using Windows.Web;
 using Windows.Web.Http;
-using ReactNative.Bridge;
 using static System.FormattableString;
 
 namespace ReactNative.Views.Web
@@ -170,7 +167,16 @@ namespace ReactNative.Views.Web
             view.Navigate(new Uri(BLANK_URL));
         }
 
-        public override async void ReceiveCommand(WebView view, int commandId, JArray args)
+        /// <summary>
+        /// Receive events/commands directly from JavaScript through the 
+        /// <see cref="UIManagerModule"/>.
+        /// </summary>
+        /// <param name="view">
+        /// The view instance that should receive the command.
+        /// </param>
+        /// <param name="commandId">Identifer for the command.</param>
+        /// <param name="args">Optional arguments for the command.</param>
+        public override void ReceiveCommand(WebView view, int commandId, JArray args)
         {
             switch (commandId)
             {
@@ -184,7 +190,7 @@ namespace ReactNative.Views.Web
                     view.Refresh();
                     break;
                 case CommandCapturePreview:
-                    await GeneratePreviewEvent(view);
+                    GeneratePreviewEvent(view);
                     //todo: add cancelation
                     break;
                 default:
@@ -193,63 +199,37 @@ namespace ReactNative.Views.Web
             }
         }
 
-        private static async Task GeneratePreviewEvent(WebView webView)
+        static private async Task GeneratePreviewEvent(WebView webView)
         {
-            using (InMemoryRandomAccessStream randomMemoryStream = new InMemoryRandomAccessStream())
+            using (InMemoryRandomAccessStream fullSizeRandomStream = new InMemoryRandomAccessStream())
+            using (MemoryStream fullSizeMemoryStream = new MemoryStream())
+            using (MemoryStream downscaledMemoryStream = new MemoryStream())
             {
-                await webView.CapturePreviewToStreamAsync(randomMemoryStream).AsTask().ConfigureAwait(false);
-                MemoryStream resizedStream = null;
-                try
+                await webView.CapturePreviewToStreamAsync(fullSizeRandomStream).AsTask().ConfigureAwait(false);
+                await RandomAccessStream.CopyAsync(fullSizeRandomStream.GetInputStreamAt(0), fullSizeMemoryStream.AsOutputStream()).AsTask().ConfigureAwait(false);
+                fullSizeMemoryStream.Position = 0;
+                using (MagickImage image = new MagickImage(fullSizeMemoryStream))
                 {
-                    resizedStream = ResizeStream(randomMemoryStream.AsStreamForRead());
-                    String imageData = "data:image/bmp;base64," + Convert.ToBase64String(resizedStream.ToArray());
-                    DispatcherHelpers.RunOnDispatcher(() =>
-                        webView.GetReactContext().GetNativeModule<UIManagerModule>()
-                            .EventDispatcher
-                            .DispatchEvent(
-                                new WebViewPreviewFinishedEvent(
-                                    webView.GetTag(),
-                                    imageData))
-                    );
+                    image.Resize(new MagickGeometry(672, 402)
+                    {
+                        FillArea = true,
+                    });
+                    image.Crop(672, 402, Gravity.Center);
+                    image.Format = MagickFormat.Jpeg;
+                    image.Write(downscaledMemoryStream);
                 }
-                finally
-                {
-                    resizedStream?.Dispose();
-                }
+
+
+                String imageData = "data:image/jpeg;base64," + Convert.ToBase64String(downscaledMemoryStream.ToArray());
+                webView.GetReactContext().GetNativeModule<UIManagerModule>()
+                   .EventDispatcher
+                   .DispatchEvent(
+                        new WebViewPreviewFinishedEvent(
+                           webView.GetTag(),
+                           imageData));
             }
+
         }
-
-        private static MemoryStream ResizeStream(Stream input)
-        {
-            const int size = 750;
-            var output = new MemoryStream();
-
-            using (var image = new Bitmap(System.Drawing.Image.FromStream(input)))
-            {
-                int width, height;
-                if (image.Width > image.Height)
-                {
-                    width = size;
-                    height = Convert.ToInt32(image.Height * size / (double)image.Width);
-                }
-                else
-                {
-                    width = Convert.ToInt32(image.Width * size / (double)image.Height);
-                    height = size;
-                }
-                var resized = new Bitmap(width, height);
-                using (var graphics = Graphics.FromImage(resized))
-                {
-                    graphics.CompositingQuality = CompositingQuality.HighSpeed;
-                    graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                    graphics.CompositingMode = CompositingMode.SourceCopy;
-                    graphics.DrawImage(image, 0, 0, width, height);
-                    resized.Save(output, ImageFormat.Bmp);
-                }
-            }
-            return output;
-        }
-
 
         /// <summary>
         /// Called when view is detached from view hierarchy and allows for 
