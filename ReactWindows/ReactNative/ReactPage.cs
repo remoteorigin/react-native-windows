@@ -194,7 +194,7 @@ namespace ReactNative
                 {
                     _reactInstanceManager.DevSupportManager.HandleReloadJavaScript();
                 }
-                else
+                else if(KeyEvent != null)
                 {
                     KeyEvent(e);
                 }
