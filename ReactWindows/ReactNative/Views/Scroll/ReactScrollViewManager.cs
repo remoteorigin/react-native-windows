@@ -133,6 +133,16 @@ namespace ReactNative.Views.Scroll
             view.HorizontalScrollMode = _scrollViewerData[view].HorizontalScrollMode = horizontalScrollMode;
         }
 
+        [ReactProp("centerFocus")]
+        public void SetCenterFocus(ScrollViewer view, bool centerFocus)
+        {
+            _scrollViewerData[view].centerFocus = centerFocus;
+            if (view.Content == null)
+                return;
+            var snapStackPanel = (SnapStackPanel)view.Content;
+            snapStackPanel.centerFocus = centerFocus;
+        }
+
         /// <summary>
         /// Sets whether the horizontal scroll indicator is shown.
         /// </summary>
@@ -284,6 +294,7 @@ namespace ReactNative.Views.Scroll
             {
                 pagingEnabled = _scrollViewerData[parent].pagingEnabled,
                 childCount = _scrollViewerData[parent].childCount,
+                centerFocus = _scrollViewerData[parent].centerFocus,
             };
             parent.Content = stackPanel;
             stackPanel.Children.Add((UIElement) child);
@@ -422,6 +433,8 @@ namespace ReactNative.Views.Scroll
                 VerticalScrollMode = ScrollMode.Auto,
                 HorizontalSnapPointsType = SnapPointsType.Mandatory,
                 HorizontalSnapPointsAlignment = SnapPointsAlignment.Center,
+                VerticalSnapPointsType = SnapPointsType.Mandatory,
+                VerticalSnapPointsAlignment = SnapPointsAlignment.Center,
             };
 
             _scrollViewerData.Add(scrollViewer, scrollViewerData);
@@ -590,6 +603,7 @@ namespace ReactNative.Views.Scroll
             public uint childCount;
             public double offsetX;
             public double offsetY;
+            internal bool centerFocus = true;
         }
     }
 
@@ -641,19 +655,42 @@ namespace ReactNative.Views.Scroll
             }
         }
 
+        private bool _centerFocus;
+        public bool centerFocus
+        {
+            get
+            {
+                return _centerFocus;
+            }
+            internal set
+            {
+                if (_centerFocus == value)
+                    return;
+                _centerFocus = value;
+                HorizontalSnapPointsChanged?.Invoke(null, null);
+                VerticalSnapPointsChanged?.Invoke(null, null);
+            }
+        }
+
         public event EventHandler<object> HorizontalSnapPointsChanged;
         public event EventHandler<object> VerticalSnapPointsChanged;
 
         public IReadOnlyList<float> GetIrregularSnapPoints(Orientation orientation, SnapPointsAlignment alignment)
         {
-            if (!pagingEnabled || orientation == Orientation.Vertical)
+            if (!pagingEnabled )
                 return new List<float> { };
             var count = childCount;
-            var width = (float)ActualWidth / count;
+            var size = (float)(orientation == Orientation.Horizontal ? ActualWidth : ActualHeight ) / count;
             var ret = new List<float>((int)count);
+            float offset;
+            if (centerFocus)
+                offset = size / 2;
+            else
+                offset = 0;
+
             for (var i = 0; i < count; i++)
             {
-                ret.Add(width / 2 + i * width);
+                ret.Add(offset + i * size);
             }
             return ret;
         }
