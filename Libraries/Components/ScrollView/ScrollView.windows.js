@@ -375,6 +375,11 @@ const ScrollView = React.createClass({
      */
     zoomEnabled: PropTypes.bool,
     childCount: PropTypes.number,
+    /**
+     * Used with pagingEnabled, selects if focus is centered on the child views or its boundries
+     */
+    centerFocus: PropTypes.bool,
+
   },
 
   mixins: [ScrollResponder.Mixin],
