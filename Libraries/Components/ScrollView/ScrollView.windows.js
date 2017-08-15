@@ -374,6 +374,10 @@ const ScrollView = React.createClass({
      * @platform windows
      */
     zoomEnabled: PropTypes.bool,
+    /**
+     * Used with pageingEnabled to calculate snap positions
+     * @platform windows
+     */
     childCount: PropTypes.number,
     /**
      * Used with pagingEnabled, selects if focus is centered on the child views or its boundries
@@ -592,7 +596,7 @@ const ScrollView = React.createClass({
       onResponderRelease: this.scrollResponderHandleResponderRelease,
       onResponderReject: this.scrollResponderHandleResponderReject,
       sendMomentumEvents: (this.props.onMomentumScrollBegin || this.props.onMomentumScrollEnd) ? true : false,
-      childCount: React.Children.count(this.props.children),
+      childCount: this.props.childCount === undefined ?  React.Children.count(this.props.children) : this.props.childCount,
     };
 
     const { decelerationRate } = this.props;
