@@ -4,10 +4,8 @@ using ReactNative.UIManager.Annotations;
 using ReactNative.Views.Web.Events;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
@@ -201,7 +199,7 @@ namespace ReactNative.Views.Web
                 MemoryStream resizedStream = null;
                 try
                 {
-                    resizedStream = ResizeStream(randomMemoryStream.AsStreamForRead());
+                    resizedStream = await ResizeStream(randomMemoryStream);
                     String imageData = "data:image/bmp;base64," + Convert.ToBase64String(resizedStream.ToArray());
                     DispatcherHelpers.RunOnDispatcher(() =>
                         webView.GetReactContext().GetNativeModule<UIManagerModule>()
@@ -219,45 +217,38 @@ namespace ReactNative.Views.Web
             }
         }
 
-        private static MemoryStream ResizeStream(Stream input)
-        {
-            const int size = 750;
-            var output = new MemoryStream();
+		public static async Task<MemoryStream> ResizeStream(InMemoryRandomAccessStream imageStream)
+		{
+		    var decoder = await BitmapDecoder.CreateAsync(imageStream);
 
-            using (var image = new Bitmap(System.Drawing.Image.FromStream(input)))
-            {
-                int width, height;
-                if (image.Width > image.Height)
-                {
-                    width = size;
-                    height = Convert.ToInt32(image.Height * size / (double)image.Width);
-                }
-                else
-                {
-                    width = Convert.ToInt32(image.Width * size / (double)image.Height);
-                    height = size;
-                }
-                var resized = new Bitmap(width, height);
-                using (var graphics = Graphics.FromImage(resized))
-                {
-                    graphics.CompositingQuality = CompositingQuality.HighSpeed;
-                    graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                    graphics.CompositingMode = CompositingMode.SourceCopy;
-                    graphics.DrawImage(image, 0, 0, width, height);
-                    resized.Save(output, ImageFormat.Bmp);
-                }
-            }
-            return output;
-        }
+		    using (imageStream)
+		    {
+		        var resizedStream = new InMemoryRandomAccessStream();
+
+		        BitmapEncoder encoder = await BitmapEncoder.CreateForTranscodingAsync(resizedStream, decoder);
 
 
-        /// <summary>
-        /// Called when view is detached from view hierarchy and allows for 
-        /// additional cleanup by the <see cref="ReactWebViewManager"/>.
-        /// </summary>
-        /// <param name="reactContext">The React context.</param>
-        /// <param name="view">The view.</param>
-        public override void OnDropViewInstance(ThemedReactContext reactContext, WebView view)
+		        encoder.BitmapTransform.InterpolationMode = BitmapInterpolationMode.Linear;
+
+		        encoder.BitmapTransform.ScaledHeight = (uint)decoder.PixelHeight / 2;
+		        encoder.BitmapTransform.ScaledWidth = (uint)decoder.PixelWidth / 2;
+
+		        await encoder.FlushAsync();
+		        resizedStream.Seek(0);
+		        var outBuffer = new byte[resizedStream.Size];
+		        await resizedStream.ReadAsync(outBuffer.AsBuffer(), (uint)resizedStream.Size, InputStreamOptions.None);
+		        return new MemoryStream(outBuffer);
+		    }
+		}
+
+
+		/// <summary>
+		/// Called when view is detached from view hierarchy and allows for 
+		/// additional cleanup by the <see cref="ReactWebViewManager"/>.
+		/// </summary>
+		/// <param name="reactContext">The React context.</param>
+		/// <param name="view">The view.</param>
+		public override void OnDropViewInstance(ThemedReactContext reactContext, WebView view)
         {
             base.OnDropViewInstance(reactContext, view);
             view.NavigationCompleted -= OnNavigationCompleted;
